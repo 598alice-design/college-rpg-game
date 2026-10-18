@@ -1,0 +1,1755 @@
+<!DOCTYPE html>
+<html lang="zh-TW" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>《早八生存戰：大學生畢業傳說》Web RPG</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Inter & Noto Sans TC -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      font-family: 'Inter', 'Noto Sans TC', sans-serif;
+    }
+
+    body {
+      background: radial-gradient(circle at 20% 20%, #1e1b4b 0%, #0f172a 50%, #020617 100%);
+      color: #f8fafc;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* 現代毛玻璃卡片 */
+    .glass-card {
+      background: rgba(30, 41, 59, 0.72);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: 0 12px 32px -4px rgba(0, 0, 0, 0.45);
+    }
+
+    .glass-card-hover {
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .glass-card-hover:hover {
+      transform: translateY(-4px);
+      border-color: rgba(129, 140, 248, 0.45);
+      box-shadow: 0 20px 38px -8px rgba(79, 70, 229, 0.28);
+    }
+
+    /* 震動與打擊特效 */
+    @keyframes shakeHit {
+      0%, 100% { transform: translateX(0); }
+      20% { transform: translateX(-10px) rotate(-2deg); }
+      40% { transform: translateX(10px) rotate(2deg); }
+      60% { transform: translateX(-8px) rotate(-1deg); }
+      80% { transform: translateX(8px) rotate(1deg); }
+    }
+    .animate-shake {
+      animation: shakeHit 0.38s ease-in-out;
+    }
+
+    @keyframes attackLungeRight {
+      0%, 100% { transform: translateX(0) scale(1); }
+      40% { transform: translateX(28px) scale(1.06); }
+    }
+    .animate-lunge-right {
+      animation: attackLungeRight 0.32s ease-out;
+    }
+
+    @keyframes attackLungeLeft {
+      0%, 100% { transform: translateX(0) scale(1); }
+      40% { transform: translateX(-28px) scale(1.06); }
+    }
+    .animate-lunge-left {
+      animation: attackLungeLeft 0.32s ease-out;
+    }
+
+    /* 浮動傷害數字動畫 */
+    @keyframes floatDamage {
+      0% {
+        opacity: 1;
+        transform: translateY(0) scale(0.8);
+      }
+      30% {
+        opacity: 1;
+        transform: translateY(-18px) scale(1.15);
+      }
+      100% {
+        opacity: 0;
+        transform: translateY(-55px) scale(0.95);
+      }
+    }
+    .floating-text {
+      position: absolute;
+      pointer-events: none;
+      font-weight: 900;
+      z-index: 50;
+      text-shadow: 0 3px 10px rgba(0, 0, 0, 0.85);
+      animation: floatDamage 1.05s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    /* 狂暴脈衝特效 */
+    @keyframes bossEnragePulse {
+      0%, 100% {
+        box-shadow: 0 0 15px rgba(239, 68, 68, 0.4), inset 0 0 15px rgba(239, 68, 68, 0.2);
+        border-color: rgba(239, 68, 68, 0.6);
+      }
+      50% {
+        box-shadow: 0 0 32px rgba(239, 68, 68, 0.85), inset 0 0 25px rgba(239, 68, 68, 0.45);
+        border-color: rgba(248, 113, 113, 1);
+      }
+    }
+    .enrage-aura {
+      animation: bossEnragePulse 1.4s infinite ease-in-out;
+    }
+
+    /* 自訂捲軸 */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.6);
+      border-radius: 8px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(99, 102, 241, 0.5);
+      border-radius: 8px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(129, 140, 248, 0.8);
+    }
+
+    /* 血條平滑過渡 */
+    .bar-fill {
+      transition: width 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+  </style>
+</head>
+<body class="p-3 sm:p-5 md:p-6 flex flex-col items-center justify-start min-h-screen select-none">
+
+  <!-- 頂部品牌標題區 -->
+  <header class="w-full max-w-6xl flex flex-wrap items-center justify-between gap-3 mb-4">
+    <div class="flex items-center gap-3">
+      <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 flex items-center justify-center text-2xl shadow-lg shadow-indigo-500/30">
+        🎓
+      </div>
+      <div>
+        <h1 class="text-xl sm:text-2xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-indigo-300 via-purple-200 to-pink-300">
+          早八生存戰：大學生畢業傳說
+        </h1>
+        <p class="text-xs text-slate-400">Vibe Coding 互動式回合制養成 RPG</p>
+      </div>
+    </div>
+
+    <!-- 全域控制按鈕 -->
+    <div class="flex items-center gap-2">
+      <button id="btn-sound" onclick="toggleSound()" class="glass-card px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold text-slate-200 hover:bg-slate-800/80 active:scale-95 transition flex items-center gap-1.5">
+        <span id="sound-icon">🔊</span> <span id="sound-text">音效：開</span>
+      </button>
+      <button id="btn-reset" onclick="openResetModal()" class="hidden glass-card px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold text-rose-300 hover:bg-rose-950/60 border-rose-500/30 active:scale-95 transition flex items-center gap-1.5">
+        🔄 轉系重來
+      </button>
+    </div>
+  </header>
+
+  <!-- ========================================== -->
+  <!-- 畫面一：開局選角畫面 (Class Selection Screen) -->
+  <!-- ========================================== -->
+  <main id="screen-select" class="w-full max-w-6xl my-auto py-4">
+    <div class="text-center max-w-2xl mx-auto mb-8">
+      <span class="inline-block px-3.5 py-1 rounded-full text-xs font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 mb-3">
+        🏫 大一新生入學報到處
+      </span>
+      <h2 class="text-2xl sm:text-4xl font-black text-white mb-3">請選擇你的大學主修科系（職業）</h2>
+      <p class="text-slate-300 text-sm sm:text-base leading-relaxed">
+        不同科系擁有截然不同的<strong class="text-indigo-300">初始肝指數</strong>、<strong class="text-amber-300">專屬爆肝大招</strong>與<strong class="text-emerald-300">被動天賦</strong>。修完五大必修夢魘，擊敗指導教授取得畢業證書吧！
+      </p>
+    </div>
+
+    <!-- 讀取存檔提示橫幅 (若有存檔自動顯示) -->
+    <div id="save-banner" class="hidden max-w-3xl mx-auto mb-7 glass-card rounded-2xl p-4 border-emerald-500/40 bg-emerald-950/20 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <div class="text-3xl">💾</div>
+        <div>
+          <div class="text-sm font-bold text-emerald-300">偵測到上次的學籍存檔！</div>
+          <div id="save-summary" class="text-xs text-slate-300">科系：資工爆肝系 | 等級：Lv.2 大二老鳥</div>
+        </div>
+      </div>
+      <button onclick="continueSavedGame()" class="w-full sm:w-auto px-5 py-2.5 rounded-xl font-bold text-sm bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 hover:brightness-110 active:scale-95 transition shadow-lg shadow-emerald-500/25">
+        ▶️ 繼續未完學業
+      </button>
+    </div>
+
+    <!-- 三大職業卡片網格 -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      
+      <!-- 職業 1：資工爆肝系 -->
+      <div class="glass-card glass-card-hover rounded-3xl p-6 flex flex-col justify-between relative overflow-hidden group">
+        <div class="absolute -right-8 -top-8 w-32 h-32 bg-cyan-500/15 rounded-full blur-2xl group-hover:bg-cyan-500/25 transition"></div>
+        <div>
+          <div class="flex items-center justify-between mb-4">
+            <span class="text-5xl">💻</span>
+            <span class="px-3 py-1 rounded-full text-xs font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+              高爆發輸出型
+            </span>
+          </div>
+          <h3 class="text-2xl font-black text-white mb-1">資工爆肝系</h3>
+          <p class="text-xs text-slate-400 mb-5">「只要 Code 能動，就千萬別去動它！」血液裡流淌著濃醇咖啡因的鍵盤戰士。</p>
+
+          <!-- 基礎數值 -->
+          <div class="grid grid-cols-2 gap-2.5 mb-5 text-xs bg-slate-900/60 p-3.5 rounded-2xl border border-slate-700/60">
+            <div><span class="text-slate-400">❤️ 肝指數 HP：</span><strong class="text-rose-400">100</strong></div>
+            <div><span class="text-slate-400">☕ 咖啡因 MP：</span><strong class="text-sky-400">100</strong></div>
+            <div><span class="text-slate-400">⚔️ 爆肝力 ATK：</span><strong class="text-amber-400">26</strong></div>
+            <div><span class="text-slate-400">💥 爆擊率 CRIT：</span><strong class="text-purple-400">35%</strong></div>
+          </div>
+
+          <!-- 技能與被動 -->
+          <div class="space-y-3 text-xs mb-6">
+            <div class="p-3 rounded-xl bg-indigo-950/50 border border-indigo-500/30">
+              <div class="font-bold text-indigo-300 mb-1">⚡ 專屬大招：【Ctrl+C / Ctrl+V 大法】</div>
+              <div class="text-slate-300">消耗 30 MP，召喚開源大神之力，對敵人造成 <span class="text-amber-300 font-bold">220% ATK</span> 巨額程式碼爆擊傷害！</div>
+            </div>
+            <div class="p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/30">
+              <div class="font-bold text-emerald-300 mb-1">🌟 職業被動：【熬夜抗性】</div>
+              <div class="text-slate-300">越夜越精神！基礎爆擊率永久額外 <span class="text-emerald-300 font-bold">+25%</span>（已含於初始面板）。</div>
+            </div>
+          </div>
+        </div>
+
+        <button onclick="startNewGame('cs')" class="w-full py-3.5 rounded-2xl font-extrabold text-sm bg-gradient-to-r from-cyan-500 to-indigo-600 text-white hover:brightness-110 active:scale-95 transition shadow-lg shadow-cyan-500/25">
+          註冊入學：資工爆肝系 →
+        </button>
+      </div>
+
+      <!-- 職業 2：體育猛男系 -->
+      <div class="glass-card glass-card-hover rounded-3xl p-6 flex flex-col justify-between relative overflow-hidden group">
+        <div class="absolute -right-8 -top-8 w-32 h-32 bg-amber-500/15 rounded-full blur-2xl group-hover:bg-amber-500/25 transition"></div>
+        <div>
+          <div class="flex items-center justify-between mb-4">
+            <span class="text-5xl">🏋️</span>
+            <span class="px-3 py-1 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+              高生存坦克型
+            </span>
+          </div>
+          <h3 class="text-2xl font-black text-white mb-1">體育猛男系</h3>
+          <p class="text-xs text-slate-400 mb-5">「微積分是什麼？能加乳清蛋白喝嗎？」擁有鋼鐵般體魄與超強抗壓性的陽光猛男。</p>
+
+          <!-- 基礎數值 -->
+          <div class="grid grid-cols-2 gap-2.5 mb-5 text-xs bg-slate-900/60 p-3.5 rounded-2xl border border-slate-700/60">
+            <div><span class="text-slate-400">❤️ 肝指數 HP：</span><strong class="text-rose-400">160</strong></div>
+            <div><span class="text-slate-400">☕ 咖啡因 MP：</span><strong class="text-sky-400">70</strong></div>
+            <div><span class="text-slate-400">⚔️ 爆肝力 ATK：</span><strong class="text-amber-400">20</strong></div>
+            <div><span class="text-slate-400">💥 爆擊率 CRIT：</span><strong class="text-purple-400">15%</strong></div>
+          </div>
+
+          <!-- 技能與被動 -->
+          <div class="space-y-3 text-xs mb-6">
+            <div class="p-3 rounded-xl bg-indigo-950/50 border border-indigo-500/30">
+              <div class="font-bold text-indigo-300 mb-1">⚡ 專屬大招：【高蛋白重擊】</div>
+              <div class="text-slate-300">消耗 25 MP，造成 <span class="text-amber-300 font-bold">160% ATK</span> 物理震撼傷害，並立即恢復自身 <span class="text-rose-300 font-bold">20% 最大 HP</span>！</div>
+            </div>
+            <div class="p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/30">
+              <div class="font-bold text-emerald-300 mb-1">🌟 職業被動：【強健體魄】</div>
+              <div class="text-slate-300">肌肉能抵擋一切焦慮！受到的所有學業精神傷害直接減少 <span class="text-emerald-300 font-bold">20%</span>。</div>
+            </div>
+          </div>
+        </div>
+
+        <button onclick="startNewGame('pe')" class="w-full py-3.5 rounded-2xl font-extrabold text-sm bg-gradient-to-r from-amber-500 to-orange-600 text-white hover:brightness-110 active:scale-95 transition shadow-lg shadow-amber-500/25">
+          註冊入學：體育猛男系 →
+        </button>
+      </div>
+
+      <!-- 職業 3：設計肝帝系 -->
+      <div class="glass-card glass-card-hover rounded-3xl p-6 flex flex-col justify-between relative overflow-hidden group">
+        <div class="absolute -right-8 -top-8 w-32 h-32 bg-pink-500/15 rounded-full blur-2xl group-hover:bg-pink-500/25 transition"></div>
+        <div>
+          <div class="flex items-center justify-between mb-4">
+            <span class="text-5xl">🎨</span>
+            <span class="px-3 py-1 rounded-full text-xs font-bold bg-pink-500/20 text-pink-300 border border-pink-500/30">
+              戰術控場與經濟型
+            </span>
+          </div>
+          <h3 class="text-2xl font-black text-white mb-1">設計肝帝系</h3>
+          <p class="text-xs text-slate-400 mb-5">「給我五彩斑斕的黑，還要放大但別太滿！」經歷千錘百鍊、兼職接案賺翻天的全能肝帝。</p>
+
+          <!-- 基礎數值 -->
+          <div class="grid grid-cols-2 gap-2.5 mb-5 text-xs bg-slate-900/60 p-3.5 rounded-2xl border border-slate-700/60">
+            <div><span class="text-slate-400">❤️ 肝指數 HP：</span><strong class="text-rose-400">125</strong></div>
+            <div><span class="text-slate-400">☕ 咖啡因 MP：</span><strong class="text-sky-400">90</strong></div>
+            <div><span class="text-slate-400">⚔️ 爆肝力 ATK：</span><strong class="text-amber-400">22</strong></div>
+            <div><span class="text-slate-400">💥 爆擊率 CRIT：</span><strong class="text-purple-400">20%</strong></div>
+          </div>
+
+          <!-- 技能與被動 -->
+          <div class="space-y-3 text-xs mb-6">
+            <div class="p-3 rounded-xl bg-indigo-950/50 border border-indigo-500/30">
+              <div class="font-bold text-indigo-300 mb-1">⚡ 專屬大招：【甲方說要改十版】</div>
+              <div class="text-slate-300">消耗 30 MP，造成 <span class="text-amber-300 font-bold">170% ATK</span> 精神折磨傷害，並有 <span class="text-purple-300 font-bold">50% 機率暈眩敵人</span> 一回合！</div>
+            </div>
+            <div class="p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/30">
+              <div class="font-bold text-emerald-300 mb-1">🌟 職業被動：【接案外快】</div>
+              <div class="text-slate-300">深諳財富密碼！每次戰鬥勝利獲得的獎學金（金幣）額外 <span class="text-emerald-300 font-bold">+35%</span>。</div>
+            </div>
+          </div>
+        </div>
+
+        <button onclick="startNewGame('design')" class="w-full py-3.5 rounded-2xl font-extrabold text-sm bg-gradient-to-r from-pink-500 to-purple-600 text-white hover:brightness-110 active:scale-95 transition shadow-lg shadow-pink-500/25">
+          註冊入學：設計肝帝系 →
+        </button>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- ========================================== -->
+  <!-- 畫面二：主遊戲介面 (Main Game Interface)    -->
+  <!-- ========================================== -->
+  <main id="screen-game" class="hidden w-full max-w-6xl flex-col gap-4">
+    
+    <!-- 1. 頂部狀態列 (Top Status Bar) -->
+    <section class="glass-card rounded-3xl p-4 sm:p-5">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-center">
+        
+        <!-- 玩家頭像與科系等級 -->
+        <div class="lg:col-span-4 flex items-center gap-3.5">
+          <div id="ui-class-icon" class="w-16 h-16 rounded-2xl bg-slate-800/90 border border-slate-600/50 flex items-center justify-center text-4xl shadow-inner shrink-0">
+            💻
+          </div>
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span id="ui-grade-badge" class="px-2.5 py-0.5 rounded-lg text-xs font-extrabold bg-indigo-500 text-white">
+                Lv.1 大一菜鳥
+              </span>
+              <h2 id="ui-class-name" class="text-lg font-black text-white truncate">資工爆肝系</h2>
+            </div>
+            <p id="ui-passive-desc" class="text-xs text-emerald-300 mt-1 truncate">🌟 被動：熬夜抗性 (爆擊率+25%)</p>
+            <!-- EXP 經驗條 -->
+            <div class="mt-2">
+              <div class="flex justify-between text-[11px] text-slate-400 mb-0.5">
+                <span>🎓 學分經驗 EXP</span>
+                <span id="ui-exp-text">0 / 100</span>
+              </div>
+              <div class="w-full h-2 bg-slate-900 rounded-full overflow-hidden">
+                <div id="ui-exp-bar" class="bar-fill h-full bg-gradient-to-r from-indigo-400 to-purple-400" style="width: 0%"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- HP 與 MP 雙狀態條 -->
+        <div class="lg:col-span-4 space-y-2.5 bg-slate-900/50 p-3.5 rounded-2xl border border-slate-800">
+          <!-- HP 肝指數 -->
+          <div>
+            <div class="flex justify-between text-xs font-bold mb-1">
+              <span class="text-rose-300 flex items-center gap-1">❤️ 肝指數 (HP)</span>
+              <span id="ui-hp-text" class="text-rose-200">100 / 100</span>
+            </div>
+            <div class="w-full h-3 bg-slate-950 rounded-full overflow-hidden p-0.5">
+              <div id="ui-hp-bar" class="bar-fill h-full rounded-full bg-gradient-to-r from-rose-500 to-orange-400" style="width: 100%"></div>
+            </div>
+          </div>
+          <!-- MP 咖啡因 -->
+          <div>
+            <div class="flex justify-between text-xs font-bold mb-1">
+              <span class="text-sky-300 flex items-center gap-1">☕ 咖啡因 (MP)</span>
+              <span id="ui-mp-text" class="text-sky-200">100 / 100</span>
+            </div>
+            <div class="w-full h-3 bg-slate-950 rounded-full overflow-hidden p-0.5">
+              <div id="ui-mp-bar" class="bar-fill h-full rounded-full bg-gradient-to-r from-sky-500 to-cyan-300" style="width: 100%"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 戰鬥屬性與獎學金 -->
+        <div class="lg:col-span-4 grid grid-cols-3 gap-2 text-center">
+          <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-2.5">
+            <div class="text-[11px] text-slate-400">⚔️ 爆肝力 ATK</div>
+            <div id="ui-atk" class="text-lg sm:text-xl font-black text-amber-300 mt-0.5">26</div>
+          </div>
+          <div class="bg-slate-900/60 border border-slate-800 rounded-2xl p-2.5">
+            <div class="text-[11px] text-slate-400">💥 爆擊率 CRIT</div>
+            <div id="ui-crit" class="text-lg sm:text-xl font-black text-purple-300 mt-0.5">35%</div>
+          </div>
+          <div class="bg-slate-900/60 border border-amber-500/30 rounded-2xl p-2.5">
+            <div class="text-[11px] text-amber-300/80">💰 獎學金</div>
+            <div id="ui-gold" class="text-lg sm:text-xl font-black text-amber-400 mt-0.5">$50</div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- 2. 中央主舞台區 (Campus Rest Hub vs Classroom Battle Arena) -->
+    
+    <!-- 2A. 校園休息區 (選課挑戰 + 校園福利社) -->
+    <section id="view-hub" class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+      
+      <!-- 左側：選課挑戰系統 (Stages) -->
+      <div class="lg:col-span-7 glass-card rounded-3xl p-5 flex flex-col justify-between">
+        <div>
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+            <div>
+              <h3 class="text-lg font-black text-white flex items-center gap-2">
+                📋 教務處選課挑戰系統
+              </h3>
+              <p class="text-xs text-slate-400">依序修完 5 門必修夢魘課程即可畢業！（可重複刷關賺獎學金與學分）</p>
+            </div>
+            <!-- 宿舍補眠快速恢復按鈕 -->
+            <button onclick="restInDorm()" class="px-3.5 py-2 rounded-xl text-xs font-extrabold bg-gradient-to-r from-emerald-500 to-teal-600 text-white hover:brightness-110 active:scale-95 transition shadow-md shadow-emerald-500/20 flex items-center gap-1.5">
+              🛌 回宿舍補眠 (免費滿血滿魔)
+            </button>
+          </div>
+
+          <!-- 五大關卡列表容器 -->
+          <div id="stage-list" class="space-y-2.5">
+            <!-- 由 JS 動態渲染 -->
+          </div>
+        </div>
+      </div>
+
+      <!-- 右側：校園福利社 (Campus Shop & Inventory) -->
+      <div class="lg:col-span-5 glass-card rounded-3xl p-5 flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <h3 class="text-lg font-black text-white flex items-center gap-2">
+                🏪 校園福利社 & 裝備強化
+              </h3>
+              <p class="text-xs text-slate-400">花費獎學金購買戰鬥補給品或永久強化神裝</p>
+            </div>
+            <div class="text-xs px-3 py-1.5 rounded-xl bg-slate-900/90 border border-slate-700 text-slate-300">
+              🎒 雞湯:<strong id="hub-soup-count" class="text-rose-300 ml-0.5">1</strong> | 美式:<strong id="hub-coffee-count" class="text-sky-300 ml-0.5">1</strong>
+            </div>
+          </div>
+
+          <!-- 商店商品清單 -->
+          <div id="shop-list" class="space-y-2.5">
+            <!-- 由 JS 動態渲染 -->
+          </div>
+        </div>
+
+        <div class="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
+          <span>💡 提示：打不過期中考時，可以先刷早八微積分賺錢買考古題！</span>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- 2B. 教室戰鬥區 (Classroom Battle Arena) -->
+    <section id="view-battle" class="hidden glass-card rounded-3xl p-5 sm:p-6 relative overflow-hidden">
+      
+      <!-- 頂部關卡標題列 -->
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3 mb-5">
+        <div class="flex items-center gap-2">
+          <span id="battle-stage-badge" class="px-3 py-1 rounded-lg text-xs font-extrabold bg-rose-500/20 text-rose-300 border border-rose-500/30">
+            STAGE 1
+          </span>
+          <h3 id="battle-stage-title" class="text-lg font-black text-white">早八必修微積分</h3>
+        </div>
+        <div id="battle-turn-indicator" class="text-xs font-bold px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+          回合 #1 • 你的行動回合
+        </div>
+      </div>
+
+      <!-- 對戰雙人舞台卡片 -->
+      <div class="grid grid-cols-1 md:grid-cols-11 gap-4 items-center my-2">
+        
+        <!-- 左方：玩家戰鬥卡片 -->
+        <div id="battle-player-card" class="md:col-span-5 bg-slate-900/75 border border-slate-700/80 rounded-3xl p-5 relative flex flex-col items-center text-center">
+          <div id="player-float-anchor" class="relative"></div>
+          <div id="battle-player-avatar" class="w-20 h-20 rounded-3xl bg-indigo-950/80 border border-indigo-500/40 flex items-center justify-center text-5xl mb-3 shadow-lg">
+            💻
+          </div>
+          <h4 id="battle-player-name" class="text-lg font-black text-white">資工爆肝系</h4>
+          <p id="battle-player-quote" class="text-xs text-slate-400 italic mt-0.5 mb-4">「這堂課我一定能撐過去！」</p>
+
+          <!-- 玩家戰鬥即時血條與魔力條 -->
+          <div class="w-full space-y-2 text-left">
+            <div>
+              <div class="flex justify-between text-xs font-bold mb-1">
+                <span class="text-rose-300">❤️ 肝指數 HP</span>
+                <span id="battle-player-hp-text" class="text-rose-200">100 / 100</span>
+              </div>
+              <div class="w-full h-3 bg-slate-950 rounded-full overflow-hidden">
+                <div id="battle-player-hp-bar" class="bar-fill h-full bg-gradient-to-r from-rose-500 to-orange-400" style="width: 100%"></div>
+              </div>
+            </div>
+            <div>
+              <div class="flex justify-between text-xs font-bold mb-1">
+                <span class="text-sky-300">☕ 咖啡因 MP</span>
+                <span id="battle-player-mp-text" class="text-sky-200">100 / 100</span>
+              </div>
+              <div class="w-full h-3 bg-slate-950 rounded-full overflow-hidden">
+                <div id="battle-player-mp-bar" class="bar-fill h-full bg-gradient-to-r from-sky-500 to-cyan-300" style="width: 100%"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 中央 VS 圖示 -->
+        <div class="md:col-span-1 flex flex-col items-center justify-center py-2">
+          <div class="w-12 h-12 rounded-full bg-gradient-to-br from-rose-500 to-amber-500 flex items-center justify-center font-black text-sm text-white shadow-lg shadow-rose-500/30">
+            VS
+          </div>
+        </div>
+
+        <!-- 右方：敵人怪物卡片 -->
+        <div id="battle-enemy-card" class="md:col-span-5 bg-slate-900/75 border border-slate-700/80 rounded-3xl p-5 relative flex flex-col items-center text-center transition-all">
+          <div id="enemy-float-anchor" class="relative"></div>
+          
+          <!-- 敵人狀態標籤 (暈眩 / 二階段狂暴) -->
+          <div id="enemy-status-badges" class="flex gap-1.5 mb-2 min-h-[24px]">
+            <!-- 動態插入 -->
+          </div>
+
+          <div id="battle-enemy-avatar" class="w-20 h-20 rounded-3xl bg-rose-950/80 border border-rose-500/40 flex items-center justify-center text-5xl mb-3 shadow-lg">
+            ⏰
+          </div>
+          <h4 id="battle-enemy-name" class="text-lg font-black text-white">早八必修微積分</h4>
+          <p id="battle-enemy-dialogue" class="text-xs text-amber-200/90 bg-slate-950/80 px-3 py-1.5 rounded-xl border border-slate-800 mt-1 mb-4">
+            「同學，請上台證明這個極限定理！」
+          </p>
+
+          <!-- 敵人血條 -->
+          <div class="w-full space-y-2 text-left">
+            <div>
+              <div class="flex justify-between text-xs font-bold mb-1">
+                <span class="text-rose-400">👾 課程難度 (HP)</span>
+                <span id="battle-enemy-hp-text" class="text-rose-200">90 / 90</span>
+              </div>
+              <div class="w-full h-3.5 bg-slate-950 rounded-full overflow-hidden">
+                <div id="battle-enemy-hp-bar" class="bar-fill h-full bg-gradient-to-r from-red-600 via-rose-500 to-amber-400" style="width: 100%"></div>
+              </div>
+            </div>
+            <div class="flex justify-between text-[11px] text-slate-400 pt-1">
+              <span>⚡ 精神攻擊力：<strong id="battle-enemy-atk" class="text-rose-300">12</strong></span>
+              <span>🎁 通關獎勵：<strong id="battle-enemy-reward" class="text-amber-300">$40 / 50 EXP</strong></span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- 底部：回合制戰鬥操作按鈕區 -->
+      <div class="mt-6 pt-4 border-t border-slate-800">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5">
+          
+          <!-- 按鈕 1：普通攻擊 -->
+          <button id="btn-act-attack" onclick="playerAction('attack')" class="p-3.5 rounded-2xl bg-slate-800 hover:bg-slate-700 border border-slate-600/70 text-left transition active:scale-95 group">
+            <div class="flex items-center justify-between">
+              <span class="font-extrabold text-sm text-white group-hover:text-amber-300">✏️ 認真聽講 (普攻)</span>
+              <span class="text-[11px] px-2 py-0.5 rounded bg-sky-500/20 text-sky-300 font-bold">+15% MP</span>
+            </div>
+            <div class="text-[11px] text-slate-400 mt-1">造成 100% 基礎傷害並回復咖啡因</div>
+          </button>
+
+          <!-- 按鈕 2：職業專精大招 -->
+          <button id="btn-act-skill" onclick="playerAction('skill')" class="p-3.5 rounded-2xl bg-gradient-to-br from-indigo-600/90 to-purple-700/90 hover:from-indigo-500 hover:to-purple-600 border border-indigo-400/50 text-left transition active:scale-95 shadow-lg shadow-indigo-600/20">
+            <div class="flex items-center justify-between">
+              <span id="battle-skill-name" class="font-extrabold text-sm text-white">⚡ Ctrl+C 大法</span>
+              <span id="battle-skill-cost" class="text-[11px] px-2 py-0.5 rounded bg-slate-950/60 text-sky-300 font-bold">-30 MP</span>
+            </div>
+            <div id="battle-skill-desc" class="text-[11px] text-indigo-100 mt-1 truncate">220% 巨額程式碼爆擊傷害</div>
+          </button>
+
+          <!-- 按鈕 3：喝阿嬤養生雞湯 -->
+          <button id="btn-act-soup" onclick="playerAction('soup')" class="p-3.5 rounded-2xl bg-slate-800 hover:bg-slate-700 border border-rose-500/30 text-left transition active:scale-95">
+            <div class="flex items-center justify-between">
+              <span class="font-extrabold text-sm text-rose-300">🍲 阿嬤養生雞湯</span>
+              <span id="battle-soup-count" class="text-[11px] px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 font-bold">剩 1 碗</span>
+            </div>
+            <div class="text-[11px] text-slate-400 mt-1">立即恢復 +65 肝指數 (HP)</div>
+          </button>
+
+          <!-- 按鈕 4：喝特濃冰美式 -->
+          <button id="btn-act-coffee" onclick="playerAction('coffee')" class="p-3.5 rounded-2xl bg-slate-800 hover:bg-slate-700 border border-sky-500/30 text-left transition active:scale-95">
+            <div class="flex items-center justify-between">
+              <span class="font-extrabold text-sm text-sky-300">🧊 特濃冰美式</span>
+              <span id="battle-coffee-count" class="text-[11px] px-2 py-0.5 rounded bg-sky-500/20 text-sky-300 font-bold">剩 1 杯</span>
+            </div>
+            <div class="text-[11px] text-slate-400 mt-1">立即恢復 +55 咖啡因 (MP)</div>
+          </button>
+
+          <!-- 按鈕 5：翹課逃跑 -->
+          <button id="btn-act-flee" onclick="playerAction('flee')" class="p-3.5 rounded-2xl bg-slate-900/90 hover:bg-rose-950/60 border border-slate-700 hover:border-rose-500/40 text-left transition active:scale-95">
+            <div class="flex items-center justify-between">
+              <span class="font-extrabold text-sm text-slate-300">🏃 自主翹課</span>
+              <span class="text-[11px] text-slate-400">安全撤退</span>
+            </div>
+            <div class="text-[11px] text-slate-400 mt-1">逃回校園休息區重整旗鼓</div>
+          </button>
+
+        </div>
+      </div>
+
+    </section>
+
+    <!-- 3. 底部學涯紀錄 (Auto-scrolling Battle & Campus Log) -->
+    <section class="glass-card rounded-3xl p-4 sm:p-5">
+      <div class="flex items-center justify-between mb-2">
+        <span class="text-xs font-extrabold uppercase tracking-wider text-indigo-300 flex items-center gap-1.5">
+          📜 校園與戰鬥即時日誌 (Campus & Combat Log)
+        </span>
+        <button onclick="clearLog()" class="text-[11px] text-slate-400 hover:text-slate-200">清除紀錄</button>
+      </div>
+      <div id="game-log" class="h-36 sm:h-40 overflow-y-auto bg-slate-950/80 rounded-2xl p-3.5 border border-slate-800/90 space-y-1.5 text-xs sm:text-sm font-mono">
+        <!-- 日誌訊息動態插入於此 -->
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ========================================== -->
+  <!-- 彈出視窗：畢業證書 (Graduation Modal)        -->
+  <!-- ========================================== -->
+  <div id="modal-graduation" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4">
+    <div class="glass-card max-w-lg w-full rounded-3xl p-6 sm:p-8 border-2 border-amber-400/60 text-center relative overflow-hidden shadow-2xl shadow-amber-500/20">
+      <div class="text-6xl mb-3">🎓</div>
+      <div class="inline-block px-3 py-1 rounded-full text-xs font-extrabold bg-amber-400/20 text-amber-300 border border-amber-400/40 mb-2">
+        CONGRATULATIONS • 恭喜順利畢業
+      </div>
+      <h2 class="text-2xl sm:text-3xl font-black text-white mb-2">國立爆肝大學 學士畢業證書</h2>
+      <p id="grad-cert-text" class="text-sm text-slate-300 leading-relaxed mb-5">
+        學生主修【資工爆肝系】，在校期間成功擊敗早八微積分、隱形雷隊友、期中考、期末專題，並通過指導教授的終極論文考驗，准予畢業！
+      </p>
+
+      <div class="grid grid-cols-3 gap-2.5 bg-slate-900/80 p-4 rounded-2xl border border-slate-700 mb-6 text-xs">
+        <div>
+          <div class="text-slate-400">最終等級</div>
+          <div id="grad-stat-lv" class="text-base font-black text-indigo-300 mt-0.5">Lv.5</div>
+        </div>
+        <div>
+          <div class="text-slate-400">最終爆肝力</div>
+          <div id="grad-stat-atk" class="text-base font-black text-amber-300 mt-0.5">48</div>
+        </div>
+        <div>
+          <div class="text-slate-400">累積獎學金</div>
+          <div id="grad-stat-gold" class="text-base font-black text-emerald-300 mt-0.5">$650</div>
+        </div>
+      </div>
+
+      <div class="flex flex-col sm:flex-row gap-3">
+        <button onclick="closeGraduationModal()" class="flex-1 py-3 rounded-2xl font-extrabold text-sm bg-gradient-to-r from-indigo-500 to-purple-600 text-white hover:brightness-110 transition">
+          🔥 留校繼續深造 (自由刷關)
+        </button>
+        <button onclick="confirmResetGame()" class="flex-1 py-3 rounded-2xl font-extrabold text-sm bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 transition">
+          🔄 轉系體驗其他職業
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- 彈出視窗：確認轉系重來 (Reset Modal)         -->
+  <!-- ========================================== -->
+  <div id="modal-reset" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="glass-card max-w-md w-full rounded-3xl p-6 border border-rose-500/40 text-center">
+      <div class="text-5xl mb-3">⚠️</div>
+      <h3 class="text-xl font-black text-white mb-2">確定要辦理退學重考（轉系）嗎？</h3>
+      <p class="text-xs sm:text-sm text-slate-300 mb-6">
+        這將會清除你目前的等級、獎學金與裝備進度，讓你重新回到大一新生選系畫面！
+      </p>
+      <div class="flex gap-3">
+        <button onclick="closeResetModal()" class="flex-1 py-2.5 rounded-xl font-bold text-sm bg-slate-800 text-slate-300 hover:bg-slate-700 transition">
+          取消
+        </button>
+        <button onclick="confirmResetGame()" class="flex-1 py-2.5 rounded-xl font-bold text-sm bg-rose-600 text-white hover:bg-rose-500 transition">
+          確定重來
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- JavaScript 遊戲核心邏輯                      -->
+  <!-- ========================================== -->
+  <script>
+    /**************************************************************
+     * 1. 遊戲靜態資料庫：三大科系職業、五大主線關卡、福利社商店
+     **************************************************************/
+    const CLASSES = {
+      cs: {
+        id: 'cs',
+        name: '資工爆肝系',
+        icon: '💻',
+        quote: '「只要 Code 能動，就千萬別去動它！」',
+        hp: 100,
+        mp: 100,
+        atk: 26,
+        crit: 35, // 已包含被動 +25%
+        skillName: 'Ctrl+C / Ctrl+V 大法',
+        skillCost: 30,
+        skillDesc: '造成 220% ATK 巨額程式碼爆擊傷害',
+        passiveName: '熬夜抗性 (基礎爆擊率 +25%)'
+      },
+      pe: {
+        id: 'pe',
+        name: '體育猛男系',
+        icon: '🏋️',
+        quote: '「微積分是什麼？能加乳清蛋白喝嗎？」',
+        hp: 160,
+        mp: 70,
+        atk: 20,
+        crit: 15,
+        skillName: '高蛋白重擊',
+        skillCost: 25,
+        skillDesc: '造成 160% ATK 傷害，並恢復 20% 最大 HP',
+        passiveName: '強健體魄 (受到的精神傷害減少 20%)'
+      },
+      design: {
+        id: 'design',
+        name: '設計肝帝系',
+        icon: '🎨',
+        quote: '「給我五彩斑斕的黑，還要放大但別太滿！」',
+        hp: 125,
+        mp: 90,
+        atk: 22,
+        crit: 20,
+        skillName: '甲方說要改十版',
+        skillCost: 30,
+        skillDesc: '造成 170% ATK 傷害，50% 機率暈眩敵人 1 回合',
+        passiveName: '接案外快 (戰鬥勝利獲得獎學金 +35%)'
+      }
+    };
+
+    const STAGES = [
+      {
+        id: 1,
+        name: '早八必修微積分',
+        icon: '⏰',
+        recLv: 'Lv.1 大一',
+        hp: 90,
+        atk: 12,
+        gold: 45,
+        exp: 55,
+        desc: '早上八點的冰冷教室，黑板上寫滿了看不懂的希臘字母。',
+        quotes: [
+          '「同學，這題課本例題很簡單，我們請人上台寫！」',
+          '「睡著的同學請注意，老師要開始點名囉！」'
+        ],
+        specialName: '黑板天書催眠曲'
+      },
+      {
+        id: 2,
+        name: '分組報告的隱形雷隊友',
+        icon: '👻',
+        recLv: 'Lv.2 大二',
+        hp: 165,
+        atk: 18,
+        gold: 80,
+        exp: 85,
+        desc: '平時群組永遠不讀不回，上台報告前一天突然說他電腦壞了。',
+        quotes: [
+          '「拍謝我昨晚去夜唱睡過頭，PPT 你先幫我做一下～」',
+          '「蛤？今天要交喔？我以為是下禮拜欸！」'
+        ],
+        specialName: '已讀不回裝死回血術'
+      },
+      {
+        id: 3,
+        name: '地獄期中考週連發',
+        icon: '📚',
+        recLv: 'Lv.3 大三',
+        hp: 260,
+        atk: 26,
+        gold: 130,
+        exp: 135,
+        desc: '五科主科集中在同一週考試，圖書館地下室座無虛席。',
+        quotes: [
+          '「本試卷採倒扣計分，請同學審慎作答！」',
+          '「翻開背面還有四大題申論題喔！」'
+        ],
+        specialName: '選擇題倒扣連環爆擊'
+      },
+      {
+        id: 4,
+        name: '通宵趕工的期末專題',
+        icon: '🔥',
+        recLv: 'Lv.4 大四',
+        hp: 400,
+        atk: 35,
+        gold: 195,
+        exp: 210,
+        desc: '距離 Demo 只剩 6 小時，系統卻在此時出現了 99 個未知的嚴重 Bug。',
+        quotes: [
+          '「Uncaught TypeError: Cannot read properties of undefined!」',
+          '「在我的電腦上明明可以跑啊？！」'
+        ],
+        specialName: '記憶體洩漏 Bug 大爆炸'
+      },
+      {
+        id: 5,
+        name: '指導教授 & 畢業論文',
+        icon: '🎓',
+        recLv: 'Lv.5 準畢業生',
+        hp: 650,
+        atk: 45,
+        gold: 500,
+        exp: 500,
+        desc: '大學生涯最終大魔王！手持紅筆與厚重論文，露出意味深長的微笑。',
+        quotes: [
+          '「你的研究方法邏輯不太通順，建議整個打掉重寫。」',
+          '「你有看過最新那篇頂會 Paper 嗎？跟你的題目很像喔。」'
+        ],
+        specialName: '退回重寫：你確定這樣能畢業嗎？'
+      }
+    ];
+
+    const SHOP_ITEMS = [
+      {
+        id: 'soup',
+        name: '阿嬤養生雞湯',
+        icon: '🍲',
+        type: 'consumable',
+        cost: 30,
+        desc: '背包道具：可在戰鬥中飲用，立即恢復 +65 肝指數 (HP)'
+      },
+      {
+        id: 'coffee',
+        name: '特濃冰美式',
+        icon: '🧊',
+        type: 'consumable',
+        cost: 25,
+        desc: '背包道具：可在戰鬥中飲用，立即恢復 +55 咖啡因 (MP)'
+      },
+      {
+        id: 'pastExam',
+        name: '歷屆考古題秘笈',
+        icon: '📑',
+        type: 'upgrade',
+        cost: 75,
+        desc: '永久強化：洞悉出題老師套路，爆肝攻擊力永久 +6'
+      },
+      {
+        id: 'pillow',
+        name: '人體工學護頸枕',
+        icon: '🛏️',
+        type: 'upgrade',
+        cost: 70,
+        desc: '永久強化：提升睡眠品質，最大肝指數 (HP) 永久 +35'
+      },
+      {
+        id: 'keyboard',
+        name: 'RGB 機械式鍵盤',
+        icon: '⌨️',
+        type: 'upgrade',
+        cost: 95,
+        desc: '永久強化：信仰燈效加成，爆擊率永久 +5% & 最大 MP +15'
+      }
+    ];
+
+    const STORAGE_KEY = 'COLLEGE_RPG_SAVE_V1';
+
+    /**************************************************************
+     * 2. 遊戲動態狀態 (Game State)
+     **************************************************************/
+    let player = null;
+    let battle = {
+      active: false,
+      locked: false,
+      stageId: 1,
+      turn: 1,
+      enemy: null
+    };
+    let soundEnabled = true;
+    let audioCtx = null;
+
+    /**************************************************************
+     * 3. Web Audio 合成音效系統 (不需外部音檔)
+     **************************************************************/
+    function initAudio() {
+      if (!audioCtx) {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (AudioContextClass) {
+          audioCtx = new AudioContextClass();
+        }
+      }
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    function playSfx(type) {
+      if (!soundEnabled) return;
+      try {
+        initAudio();
+        if (!audioCtx) return;
+
+        const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        if (type === 'hit') {
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(220, now);
+          osc.frequency.exponentialRampToValueAtTime(70, now + 0.12);
+          gain.gain.setValueAtTime(0.18, now);
+          gain.gain.linearRampToValueAtTime(0.01, now + 0.12);
+          osc.start(now);
+          osc.stop(now + 0.12);
+        } else if (type === 'crit') {
+          osc.type = 'square';
+          osc.frequency.setValueAtTime(420, now);
+          osc.frequency.setValueAtTime(620, now + 0.06);
+          osc.frequency.exponentialRampToValueAtTime(110, now + 0.22);
+          gain.gain.setValueAtTime(0.22, now);
+          gain.gain.linearRampToValueAtTime(0.01, now + 0.22);
+          osc.start(now);
+          osc.stop(now + 0.22);
+        } else if (type === 'heal') {
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(380, now);
+          osc.frequency.exponentialRampToValueAtTime(760, now + 0.2);
+          gain.gain.setValueAtTime(0.16, now);
+          gain.gain.linearRampToValueAtTime(0.01, now + 0.2);
+          osc.start(now);
+          osc.stop(now + 0.2);
+        } else if (type === 'levelup' || type === 'win') {
+          const notes = [440, 554.37, 659.25, 880];
+          notes.forEach((freq, idx) => {
+            const o = audioCtx.createOscillator();
+            const g = audioCtx.createGain();
+            o.type = 'triangle';
+            o.connect(g);
+            g.connect(audioCtx.destination);
+            o.frequency.setValueAtTime(freq, now + idx * 0.08);
+            g.gain.setValueAtTime(0.16, now + idx * 0.08);
+            g.gain.linearRampToValueAtTime(0.005, now + idx * 0.08 + 0.22);
+            o.start(now + idx * 0.08);
+            o.stop(now + idx * 0.08 + 0.22);
+          });
+        } else if (type === 'lose') {
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(300, now);
+          osc.frequency.linearRampToValueAtTime(95, now + 0.35);
+          gain.gain.setValueAtTime(0.2, now);
+          gain.gain.linearRampToValueAtTime(0.01, now + 0.35);
+          osc.start(now);
+          osc.stop(now + 0.35);
+        }
+      } catch (e) {
+        // 忽略瀏覽器音效阻擋錯誤
+      }
+    }
+
+    function toggleSound() {
+      soundEnabled = !soundEnabled;
+      document.getElementById('sound-icon').textContent = soundEnabled ? '🔊' : '🔇';
+      document.getElementById('sound-text').textContent = soundEnabled ? '音效：開' : '音效：關';
+      if (soundEnabled) playSfx('heal');
+    }
+
+    /**************************************************************
+     * 4. 存檔與開局初始化系統
+     **************************************************************/
+    function saveGame() {
+      if (!player) return;
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(player));
+      } catch (e) {}
+    }
+
+    function loadSavedPreview() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return;
+        const saved = JSON.parse(raw);
+        if (saved && saved.classId && CLASSES[saved.classId]) {
+          const banner = document.getElementById('save-banner');
+          const summary = document.getElementById('save-summary');
+          banner.classList.remove('hidden');
+          summary.textContent = `科系：${saved.className} | 等級：Lv.${saved.level} (${getGradeTitle(saved.level)}) | 獎學金：$${saved.gold} | 解鎖進度：第 ${saved.unlockedStage} 關`;
+        }
+      } catch (e) {}
+    }
+
+    function continueSavedGame() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return;
+        player = JSON.parse(raw);
+        playSfx('heal');
+        enterMainGameScreen();
+        addLog(`📂 成功讀取學籍存檔！歡迎回來，【${player.className}】的同學！`, 'text-emerald-300 font-bold');
+      } catch (e) {}
+    }
+
+    function startNewGame(classId) {
+      const c = CLASSES[classId];
+      if (!c) return;
+
+      player = {
+        classId: c.id,
+        className: c.name,
+        icon: c.icon,
+        quote: c.quote,
+        level: 1,
+        exp: 0,
+        maxExp: 80,
+        hp: c.hp,
+        maxHp: c.hp,
+        mp: c.mp,
+        maxMp: c.mp,
+        atk: c.atk,
+        crit: c.crit,
+        gold: 50,
+        unlockedStage: 1,
+        graduated: false,
+        inventory: {
+          soup: 2,
+          coffee: 1
+        },
+        upgrades: {
+          pastExam: 0,
+          pillow: 0,
+          keyboard: 0
+        }
+      };
+
+      playSfx('levelup');
+      saveGame();
+      enterMainGameScreen();
+      clearLog();
+      addLog(`🎉 歡迎入學！你選擇了主修【${c.name}】，獲得新生入學獎學金 $50 與阿嬤養生雞湯 x2！`, 'text-amber-300 font-bold');
+      addLog(`💡 天賦啟動：【${c.passiveName}】`, 'text-emerald-300');
+    }
+
+    function enterMainGameScreen() {
+      document.getElementById('screen-select').classList.add('hidden');
+      const gameScreen = document.getElementById('screen-game');
+      gameScreen.classList.remove('hidden');
+      gameScreen.classList.add('flex');
+      document.getElementById('btn-reset').classList.remove('hidden');
+
+      switchToHubView();
+      updateAllUI();
+    }
+
+    function getGradeTitle(lv) {
+      if (lv === 1) return '大一菜鳥';
+      if (lv === 2) return '大二老鳥';
+      if (lv === 3) return '大三肝帝';
+      if (lv === 4) return '大四準畢業生';
+      return '延畢傳說碩士';
+    }
+
+    /**************************************************************
+     * 5. 介面渲染與狀態更新 (UI Rendering)
+     **************************************************************/
+    function updateAllUI() {
+      if (!player) return;
+      const c = CLASSES[player.classId];
+
+      // 頂部狀態列
+      document.getElementById('ui-class-icon').textContent = player.icon;
+      document.getElementById('ui-grade-badge').textContent = `Lv.${player.level} ${getGradeTitle(player.level)}`;
+      document.getElementById('ui-class-name').textContent = player.className;
+      document.getElementById('ui-passive-desc').textContent = `🌟 被動：${c.passiveName}`;
+
+      // EXP
+      const expPct = Math.min(100, Math.round((player.exp / player.maxExp) * 100));
+      document.getElementById('ui-exp-text').textContent = `${player.exp} / ${player.maxExp}`;
+      document.getElementById('ui-exp-bar').style.width = `${expPct}%`;
+
+      // HP & MP
+      const hpPct = Math.max(0, Math.min(100, Math.round((player.hp / player.maxHp) * 100)));
+      const mpPct = Math.max(0, Math.min(100, Math.round((player.mp / player.maxMp) * 100)));
+      document.getElementById('ui-hp-text').textContent = `${player.hp} / ${player.maxHp}`;
+      document.getElementById('ui-hp-bar').style.width = `${hpPct}%`;
+      document.getElementById('ui-mp-text').textContent = `${player.mp} / ${player.maxMp}`;
+      document.getElementById('ui-mp-bar').style.width = `${mpPct}%`;
+
+      // 攻擊、爆擊、獎學金
+      document.getElementById('ui-atk').textContent = player.atk;
+      document.getElementById('ui-crit').textContent = `${player.crit}%`;
+      document.getElementById('ui-gold').textContent = `$${player.gold}`;
+
+      // 福利社背包數量
+      document.getElementById('hub-soup-count').textContent = player.inventory.soup;
+      document.getElementById('hub-coffee-count').textContent = player.inventory.coffee;
+
+      renderStageList();
+      renderShopList();
+
+      if (battle.active) {
+        updateBattleUI();
+      }
+    }
+
+    function renderStageList() {
+      const container = document.getElementById('stage-list');
+      container.innerHTML = '';
+
+      STAGES.forEach((st) => {
+        const unlocked = player.unlockedStage >= st.id;
+        const isBoss = st.id === 5;
+
+        const card = document.createElement('div');
+        card.className = `p-3.5 rounded-2xl border transition flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 ${
+          unlocked
+            ? isBoss
+              ? 'bg-gradient-to-r from-rose-950/50 to-slate-900/90 border-rose-500/40 hover:border-rose-400'
+              : 'bg-slate-900/75 border-slate-700/80 hover:border-indigo-400/60'
+            : 'bg-slate-950/50 border-slate-800/60 opacity-60'
+        }`;
+
+        card.innerHTML = `
+          <div class="flex items-center gap-3.5">
+            <div class="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl shrink-0 ${
+              unlocked ? 'bg-slate-800 border border-slate-600/60' : 'bg-slate-900'
+            }">
+              ${unlocked ? st.icon : '🔒'}
+            </div>
+            <div>
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="text-[11px] font-extrabold px-2 py-0.5 rounded ${
+                  isBoss ? 'bg-rose-500 text-white' : 'bg-indigo-500/20 text-indigo-300'
+                }">STAGE ${st.id} • 建議 ${st.recLv}</span>
+                <h4 class="font-extrabold text-sm sm:text-base text-white">${st.name}</h4>
+              </div>
+              <p class="text-xs text-slate-400 mt-0.5">${st.desc}</p>
+              <div class="flex items-center gap-3 text-[11px] text-slate-300 mt-1">
+                <span>❤️ HP: <strong>${st.hp}</strong></span>
+                <span>⚔️ ATK: <strong>${st.atk}</strong></span>
+                <span class="text-amber-300">💰 獎學金: <strong>$${st.gold}</strong></span>
+                <span class="text-indigo-300">✨ 學分: <strong>+${st.exp} EXP</strong></span>
+              </div>
+            </div>
+          </div>
+          <button
+            ${unlocked ? `onclick="startStageBattle(${st.id})"` : 'disabled'}
+            class="w-full sm:w-auto shrink-0 px-4 py-2.5 rounded-xl font-extrabold text-xs transition ${
+              unlocked
+                ? isBoss
+                  ? 'bg-gradient-to-r from-rose-500 to-amber-500 text-white hover:brightness-110 active:scale-95 shadow-lg shadow-rose-500/25'
+                  : 'bg-indigo-600 hover:bg-indigo-500 text-white active:scale-95'
+                : 'bg-slate-800 text-slate-500 cursor-not-allowed'
+            }"
+          >
+            ${unlocked ? (isBoss ? '🔥 挑戰論文口試' : '⚔️ 進入課堂挑戰') : '需先修過前一關'}
+          </button>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    function renderShopList() {
+      const container = document.getElementById('shop-list');
+      container.innerHTML = '';
+
+      SHOP_ITEMS.forEach((item) => {
+        // 永久強化道具價格隨購買次數微幅上升
+        let currentCost = item.cost;
+        let ownedBadge = '';
+
+        if (item.type === 'upgrade') {
+          const count = player.upgrades[item.id] || 0;
+          currentCost = Math.round(item.cost * Math.pow(1.25, count));
+          ownedBadge = `<span class="text-[11px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300">已強化 Lv.${count}</span>`;
+        }
+
+        const canAfford = player.gold >= currentCost;
+
+        const row = document.createElement('div');
+        row.className = 'p-3 rounded-2xl bg-slate-900/75 border border-slate-800 flex items-center justify-between gap-3';
+        row.innerHTML = `
+          <div class="flex items-center gap-3 min-w-0">
+            <div class="w-11 h-11 rounded-xl bg-slate-800 flex items-center justify-center text-2xl shrink-0">
+              ${item.icon}
+            </div>
+            <div class="min-w-0">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="font-bold text-sm text-white">${item.name}</span>
+                ${ownedBadge}
+              </div>
+              <p class="text-xs text-slate-400 truncate">${item.desc}</p>
+            </div>
+          </div>
+          <button
+            onclick="buyShopItem('${item.id}')"
+            ${canAfford ? '' : 'disabled'}
+            class="shrink-0 px-3.5 py-2 rounded-xl font-extrabold text-xs transition ${
+              canAfford
+                ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 active:scale-95'
+                : 'bg-slate-800 text-slate-500 cursor-not-allowed'
+            }"
+          >
+            💰 $${currentCost} 購買
+          </button>
+        `;
+        container.appendChild(row);
+      });
+    }
+
+    /**************************************************************
+     * 6. 校園休息區互動：宿舍補眠 & 福利社購物
+     **************************************************************/
+    function restInDorm() {
+      if (!player) return;
+      player.hp = player.maxHp;
+      player.mp = player.maxMp;
+      playSfx('heal');
+      saveGame();
+      updateAllUI();
+      addLog('🛌 你回到宿舍睡了一場好覺，肝指數 (HP) 與咖啡因 (MP) 已完全恢復！', 'text-emerald-300 font-bold');
+    }
+
+    function buyShopItem(itemId) {
+      if (!player) return;
+      const item = SHOP_ITEMS.find((i) => i.id === itemId);
+      if (!item) return;
+
+      let cost = item.cost;
+      if (item.type === 'upgrade') {
+        const count = player.upgrades[itemId] || 0;
+        cost = Math.round(item.cost * Math.pow(1.25, count));
+      }
+
+      if (player.gold < cost) {
+        addLog('❌ 獎學金不足！快去挑戰課程賺取獎學金吧！', 'text-rose-400');
+        return;
+      }
+
+      player.gold -= cost;
+
+      if (itemId === 'soup') {
+        player.inventory.soup += 1;
+        addLog(`🍲 購買了【阿嬤養生雞湯】x1！（目前持有 ${player.inventory.soup} 碗）`, 'text-amber-300');
+      } else if (itemId === 'coffee') {
+        player.inventory.coffee += 1;
+        addLog(`🧊 購買了【特濃冰美式】x1！（目前持有 ${player.inventory.coffee} 杯）`, 'text-sky-300');
+      } else if (itemId === 'pastExam') {
+        player.upgrades.pastExam += 1;
+        player.atk += 6;
+        addLog(`📑 研讀【歷屆考古題秘笈】！爆肝攻擊力永久 +6（當前 ATK: ${player.atk}）！`, 'text-emerald-300 font-bold');
+      } else if (itemId === 'pillow') {
+        player.upgrades.pillow += 1;
+        player.maxHp += 35;
+        player.hp += 35;
+        addLog(`🛏️ 裝備【人體工學護頸枕】！最大肝指數永久 +35（當前 HP: ${player.hp}/${player.maxHp}）！`, 'text-emerald-300 font-bold');
+      } else if (itemId === 'keyboard') {
+        player.upgrades.keyboard += 1;
+        player.crit = Math.min(95, player.crit + 5);
+        player.maxMp += 15;
+        player.mp += 15;
+        addLog(`⌨️ 換上【RGB 機械式鍵盤】！爆擊率 +5%、最大咖啡因 +15！`, 'text-emerald-300 font-bold');
+      }
+
+      playSfx('heal');
+      saveGame();
+      updateAllUI();
+    }
+
+    /**************************************************************
+     * 7. 回合制戰鬥核心系統 (Battle Engine)
+     **************************************************************/
+    function switchToHubView() {
+      battle.active = false;
+      document.getElementById('view-battle').classList.add('hidden');
+      document.getElementById('view-hub').classList.remove('hidden');
+      updateAllUI();
+    }
+
+    function startStageBattle(stageId) {
+      const st = STAGES.find((s) => s.id === stageId);
+      if (!st) return;
+
+      battle = {
+        active: true,
+        locked: false,
+        stageId: st.id,
+        turn: 1,
+        enemy: {
+          id: st.id,
+          name: st.name,
+          icon: st.icon,
+          hp: st.hp,
+          maxHp: st.hp,
+          atk: st.atk,
+          gold: st.gold,
+          exp: st.exp,
+          quotes: st.quotes,
+          currentQuote: st.quotes[0],
+          specialName: st.specialName,
+          stunned: false,
+          enraged: false
+        }
+      };
+
+      document.getElementById('view-hub').classList.add('hidden');
+      document.getElementById('view-battle').classList.remove('hidden');
+      document.getElementById('battle-enemy-card').classList.remove('enrage-aura');
+
+      playSfx('hit');
+      addLog(`🔔 上課鐘響！你進入了【Stage ${st.id}：${st.name}】教室！`, 'text-indigo-300 font-bold');
+      updateBattleUI();
+    }
+
+    function updateBattleUI() {
+      if (!battle.active || !battle.enemy) return;
+      const e = battle.enemy;
+      const c = CLASSES[player.classId];
+
+      document.getElementById('battle-stage-badge').textContent = `STAGE ${e.id}`;
+      document.getElementById('battle-stage-title').textContent = e.name;
+      document.getElementById('battle-turn-indicator').textContent = battle.locked
+        ? `回合 #${battle.turn} • 敵方行動中...`
+        : `回合 #${battle.turn} • 你的行動回合`;
+
+      // 玩家戰鬥卡
+      document.getElementById('battle-player-avatar').textContent = player.icon;
+      document.getElementById('battle-player-name').textContent = `${player.className} (Lv.${player.level})`;
+      document.getElementById('battle-player-quote').textContent = player.quote;
+
+      const pHpPct = Math.max(0, Math.min(100, Math.round((player.hp / player.maxHp) * 100)));
+      const pMpPct = Math.max(0, Math.min(100, Math.round((player.mp / player.maxMp) * 100)));
+      document.getElementById('battle-player-hp-text').textContent = `${player.hp} / ${player.maxHp}`;
+      document.getElementById('battle-player-hp-bar').style.width = `${pHpPct}%`;
+      document.getElementById('battle-player-mp-text').textContent = `${player.mp} / ${player.maxMp}`;
+      document.getElementById('battle-player-mp-bar').style.width = `${pMpPct}%`;
+
+      // 敵人戰鬥卡
+      document.getElementById('battle-enemy-avatar').textContent = e.icon;
+      document.getElementById('battle-enemy-name').textContent = e.name;
+      document.getElementById('battle-enemy-dialogue').textContent = e.currentQuote;
+
+      const eHpPct = Math.max(0, Math.min(100, Math.round((e.hp / e.maxHp) * 100)));
+      document.getElementById('battle-enemy-hp-text').textContent = `${e.hp} / ${e.maxHp}`;
+      document.getElementById('battle-enemy-hp-bar').style.width = `${eHpPct}%`;
+      document.getElementById('battle-enemy-atk').textContent = e.atk;
+      document.getElementById('battle-enemy-reward').textContent = `$${e.gold} / ${e.exp} EXP`;
+
+      // 敵人狀態徽章 (暈眩 / 狂暴)
+      const badgeBox = document.getElementById('enemy-status-badges');
+      badgeBox.innerHTML = '';
+      if (e.stunned) {
+        badgeBox.innerHTML += `<span class="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-purple-500 text-white animate-bounce">💫 暈眩中 (無法行動)</span>`;
+      }
+      if (e.enraged) {
+        badgeBox.innerHTML += `<span class="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-rose-600 text-white">🔥 二階段狂暴：退回重寫</span>`;
+      }
+
+      // 技能與道具按鈕狀態
+      document.getElementById('battle-skill-name').textContent = `⚡ ${c.skillName}`;
+      document.getElementById('battle-skill-cost').textContent = `-${c.skillCost} MP`;
+      document.getElementById('battle-skill-desc').textContent = c.skillDesc;
+
+      document.getElementById('battle-soup-count').textContent = `剩 ${player.inventory.soup} 碗`;
+      document.getElementById('battle-coffee-count').textContent = `剩 ${player.inventory.coffee} 杯`;
+
+      const disableActions = battle.locked;
+      document.getElementById('btn-act-attack').disabled = disableActions;
+      document.getElementById('btn-act-skill').disabled = disableActions;
+      document.getElementById('btn-act-soup').disabled = disableActions;
+      document.getElementById('btn-act-coffee').disabled = disableActions;
+      document.getElementById('btn-act-flee').disabled = disableActions;
+    }
+
+    // 浮動傷害數字生成
+    function spawnFloatingText(target, text, colorClass) {
+      const anchorId = target === 'enemy' ? 'enemy-float-anchor' : 'player-float-anchor';
+      const anchor = document.getElementById(anchorId);
+      if (!anchor) return;
+
+      const el = document.createElement('div');
+      el.className = `floating-text text-lg sm:text-2xl ${colorClass}`;
+      el.style.left = `${(Math.random() * 40 - 20).toFixed(0)}px`;
+      el.style.top = '0px';
+      el.textContent = text;
+      anchor.appendChild(el);
+
+      setTimeout(() => {
+        el.remove();
+      }, 1050);
+    }
+
+    function triggerCardAnimation(cardId, animClass) {
+      const el = document.getElementById(cardId);
+      if (!el) return;
+      el.classList.remove('animate-shake', 'animate-lunge-right', 'animate-lunge-left');
+      void el.offsetWidth; // trigger reflow
+      el.classList.add(animClass);
+    }
+
+    // 玩家回合行動
+    function playerAction(actionType) {
+      if (!battle.active || battle.locked) return;
+      const e = battle.enemy;
+      const c = CLASSES[player.classId];
+
+      // 1. 翹課逃跑
+      if (actionType === 'flee') {
+        addLog(`🏃 你趁老師轉頭寫黑板時從後門溜走了，安全返回校園休息區！`, 'text-slate-300');
+        switchToHubView();
+        return;
+      }
+
+      // 2. 使用阿嬤養生雞湯
+      if (actionType === 'soup') {
+        if (player.inventory.soup <= 0) {
+          addLog('❌ 背包裡已經沒有【阿嬤養生雞湯】了！', 'text-rose-400');
+          return;
+        }
+        player.inventory.soup -= 1;
+        const healAmt = 65;
+        player.hp = Math.min(player.maxHp, player.hp + healAmt);
+        playSfx('heal');
+        spawnFloatingText('player', `+${healAmt} HP`, 'text-emerald-400');
+        addLog(`🍲 你喝下一碗熱騰騰的【阿嬤養生雞湯】，恢復了 ${healAmt} 點肝指數！`, 'text-emerald-300');
+        endPlayerTurn();
+        return;
+      }
+
+      // 3. 使用特濃冰美式
+      if (actionType === 'coffee') {
+        if (player.inventory.coffee <= 0) {
+          addLog('❌ 背包裡已經沒有【特濃冰美式】了！', 'text-rose-400');
+          return;
+        }
+        player.inventory.coffee -= 1;
+        const mpAmt = 55;
+        player.mp = Math.min(player.maxMp, player.mp + mpAmt);
+        playSfx('heal');
+        spawnFloatingText('player', `+${mpAmt} MP`, 'text-sky-400');
+        addLog(`🧊 你一口氣灌下【特濃冰美式】，恢復了 ${mpAmt} 點咖啡因！`, 'text-sky-300');
+        endPlayerTurn();
+        return;
+      }
+
+      // 4. 職業專精技能檢查 MP
+      if (actionType === 'skill') {
+        if (player.mp < c.skillCost) {
+          addLog(`❌ 咖啡因 (MP) 不足！需要 ${c.skillCost} MP 才能施放【${c.skillName}】（可使用普攻或喝冰美式回魔）。`, 'text-rose-400');
+          return;
+        }
+        player.mp -= c.skillCost;
+      }
+
+      battle.locked = true;
+      triggerCardAnimation('battle-player-card', 'animate-lunge-right');
+
+      // 計算傷害與爆擊
+      const variance = 0.92 + Math.random() * 0.16;
+      const isCrit = Math.random() * 100 < player.crit;
+      const critMult = isCrit ? 1.65 : 1.0;
+
+      if (actionType === 'attack') {
+        // 普通攻擊 + 回復 15% 最大 MP
+        const dmg = Math.max(1, Math.round(player.atk * variance * critMult));
+        const mpRegen = Math.max(8, Math.round(player.maxMp * 0.15));
+        player.mp = Math.min(player.maxMp, player.mp + mpRegen);
+        e.hp = Math.max(0, e.hp - dmg);
+
+        playSfx(isCrit ? 'crit' : 'hit');
+        triggerCardAnimation('battle-enemy-card', 'animate-shake');
+        spawnFloatingText('enemy', isCrit ? `💥爆擊 -${dmg}` : `-${dmg}`, isCrit ? 'text-amber-300' : 'text-rose-400');
+
+        addLog(
+          `✏️ 你發動【認真聽講】對 ${e.name} 造成 ${dmg} 點傷害${isCrit ? '（💥會心爆擊！）' : ''}，並回復 ${mpRegen} MP！`,
+          isCrit ? 'text-amber-300 font-bold' : 'text-slate-200'
+        );
+      } else if (actionType === 'skill') {
+        // 三大職業專屬技能
+        if (player.classId === 'cs') {
+          // 資工系：220% 巨額爆發
+          const dmg = Math.max(1, Math.round(player.atk * 2.2 * variance * critMult));
+          e.hp = Math.max(0, e.hp - dmg);
+          playSfx('crit');
+          triggerCardAnimation('battle-enemy-card', 'animate-shake');
+          spawnFloatingText('enemy', `⚡Ctrl+V -${dmg}`, 'text-cyan-300');
+          addLog(
+            `💻 資工大招【Ctrl+C / Ctrl+V 大法】！貼上萬行神級程式碼，對 ${e.name} 轟出 ${dmg} 點毀滅傷害${isCrit ? '（💥超載爆擊！）' : ''}！`,
+            'text-cyan-300 font-bold'
+          );
+        } else if (player.classId === 'pe') {
+          // 體育系：160% 傷害 + 恢復 20% 最大 HP
+          const dmg = Math.max(1, Math.round(player.atk * 1.6 * variance * critMult));
+          const heal = Math.round(player.maxHp * 0.2);
+          e.hp = Math.max(0, e.hp - dmg);
+          player.hp = Math.min(player.maxHp, player.hp + heal);
+          playSfx('crit');
+          triggerCardAnimation('battle-enemy-card', 'animate-shake');
+          spawnFloatingText('enemy', `🏋️重擊 -${dmg}`, 'text-amber-300');
+          spawnFloatingText('player', `+${heal} HP`, 'text-emerald-400');
+          addLog(
+            `🏋️ 體育大招【高蛋白重擊】！對 ${e.name} 造成 ${dmg} 點傷害，並補充乳清恢復自身 ${heal} 點肝指數！`,
+            'text-amber-300 font-bold'
+          );
+        } else if (player.classId === 'design') {
+          // 設計系：170% 傷害 + 50% 機率暈眩
+          const dmg = Math.max(1, Math.round(player.atk * 1.7 * variance * critMult));
+          const procStun = Math.random() < 0.55;
+          e.hp = Math.max(0, e.hp - dmg);
+          if (procStun) e.stunned = true;
+          playSfx('crit');
+          triggerCardAnimation('battle-enemy-card', 'animate-shake');
+          spawnFloatingText('enemy', procStun ? `💫暈眩 -${dmg}` : `🎨改圖 -${dmg}`, 'text-pink-300');
+          addLog(
+            `🎨 設計大招【甲方說要改十版】！對 ${e.name} 造成 ${dmg} 點精神傷害${procStun ? '，並讓敵人陷入【💫暈眩】一回合！' : '！'}`,
+            'text-pink-300 font-bold'
+          );
+        }
+      }
+
+      updateAllUI();
+
+      // 檢查敵人是否被擊敗
+      if (e.hp <= 0) {
+        setTimeout(() => {
+          handleStageVictory();
+        }, 550);
+        return;
+      }
+
+      // 檢查 Final Boss 是否進入二階段狂暴 (<50% HP)
+      if (e.id === 5 && !e.enraged && e.hp <= e.maxHp * 0.5) {
+        e.enraged = true;
+        e.atk = Math.round(e.atk * 1.3);
+        e.currentQuote = '「你確定這種品質的論文能畢業嗎？全部退回重寫！！」';
+        document.getElementById('battle-enemy-card').classList.add('enrage-aura');
+        addLog(`🔥 警告！指導教授血量低於 50%，進入二階段狂暴【退回重寫】，攻擊力大幅提升！`, 'text-rose-400 font-extrabold');
+        updateBattleUI();
+      }
+
+      endPlayerTurn();
+    }
+
+    function endPlayerTurn() {
+      battle.locked = true;
+      updateAllUI();
+      setTimeout(() => {
+        enemyTurnAction();
+      }, 680);
+    }
+
+    // 敵方回合行動
+    function enemyTurnAction() {
+      if (!battle.active || !battle.enemy) return;
+      const e = battle.enemy;
+
+      // 若敵人處於暈眩狀態
+      if (e.stunned) {
+        e.stunned = false;
+        spawnFloatingText('enemy', '💫 暈眩跳過', 'text-purple-300');
+        addLog(`💫 【${e.name}】因為要改十版設計圖而頭昏腦脹，本回合無法攻擊！`, 'text-purple-300 font-bold');
+        battle.turn += 1;
+        battle.locked = false;
+        updateAllUI();
+        return;
+      }
+
+      triggerCardAnimation('battle-enemy-card', 'animate-lunge-left');
+
+      // Stage 2 雷隊友特殊行為：25% 機率裝死偷回血
+      if (e.id === 2 && Math.random() < 0.28 && e.hp < e.maxHp) {
+        const heal = 28;
+        e.hp = Math.min(e.maxHp, e.hp + heal);
+        playSfx('heal');
+        spawnFloatingText('enemy', `👻裝死 +${heal} HP`, 'text-emerald-300');
+        addLog(`👻 【${e.name}】發動「${e.specialName}」，躲在宿舍偷睡覺恢復了 ${heal} HP！`, 'text-amber-300');
+        battle.turn += 1;
+        battle.locked = false;
+        updateAllUI();
+        return;
+      }
+
+      // 計算敵人傷害 (30% 機率發動特殊重擊)
+      const useSpecial = Math.random() < 0.32;
+      const mult = useSpecial ? 1.35 : 1.0;
+      const variance = 0.9 + Math.random() * 0.2;
+      let rawDmg = Math.round(e.atk * mult * variance);
+
+      // 體育猛男系被動：減傷 20%
+      let passiveNote = '';
+      if (player.classId === 'pe') {
+        rawDmg = Math.max(1, Math.round(rawDmg * 0.8));
+        passiveNote = '（🏋️強健體魄減傷20%）';
+      }
+
+      player.hp = Math.max(0, player.hp - rawDmg);
+      e.currentQuote = e.quotes[Math.floor(Math.random() * e.quotes.length)];
+
+      playSfx('hit');
+      triggerCardAnimation('battle-player-card', 'animate-shake');
+      spawnFloatingText('player', `-${rawDmg}`, useSpecial ? 'text-rose-500' : 'text-rose-300');
+
+      if (useSpecial) {
+        addLog(`💥 【${e.name}】施展必殺技「${e.specialName}」，對你造成 ${rawDmg} 點巨額精神傷害${passiveNote}！`, 'text-rose-400 font-bold');
+      } else {
+        addLog(`👾 【${e.name}】發動攻擊，對你造成 ${rawDmg} 點學業壓力傷害${passiveNote}。`, 'text-slate-300');
+      }
+
+      // 檢查玩家是否爆肝倒下
+      if (player.hp <= 0) {
+        setTimeout(() => {
+          handlePlayerDefeat();
+        }, 550);
+        return;
+      }
+
+      battle.turn += 1;
+      battle.locked = false;
+      saveGame();
+      updateAllUI();
+    }
+
+    // 戰鬥勝利結算
+    function handleStageVictory() {
+      const e = battle.enemy;
+      playSfx('win');
+
+      // 設計肝帝系被動：獎學金 +35%
+      let goldEarned = e.gold;
+      let goldBonusText = '';
+      if (player.classId === 'design') {
+        goldEarned = Math.round(goldEarned * 1.35);
+        goldBonusText = '（🎨接案外快加成 +35%）';
+      }
+
+      player.gold += goldEarned;
+      player.exp += e.exp;
+
+      addLog(`🏆 恭喜修課通過！你成功擊敗了【${e.name}】，獲得獎學金 $${goldEarned}${goldBonusText} 與 ${e.exp} EXP！`, 'text-amber-300 font-extrabold');
+
+      // 檢查升級
+      checkLevelUp();
+
+      // 解鎖下一關
+      if (e.id === player.unlockedStage && player.unlockedStage < 5) {
+        player.unlockedStage += 1;
+        const nextStage = STAGES.find((s) => s.id === player.unlockedStage);
+        if (nextStage) {
+          addLog(`🔓 新課程解鎖！現在可以挑戰【Stage ${nextStage.id}：${nextStage.name}】了！`, 'text-indigo-300 font-bold');
+        }
+      }
+
+      // 若擊敗第 5 關大魔王「指導教授 & 畢業論文」
+      if (e.id === 5) {
+        player.graduated = true;
+        saveGame();
+        switchToHubView();
+        openGraduationModal();
+        return;
+      }
+
+      saveGame();
+      switchToHubView();
+    }
+
+    function checkLevelUp() {
+      while (player.exp >= player.maxExp) {
+        player.exp -= player.maxExp;
+        player.level += 1;
+        player.maxExp = Math.round(player.maxExp * 1.35);
+
+        player.maxHp += 25;
+        player.hp = player.maxHp;
+        player.maxMp += 15;
+        player.mp = player.maxMp;
+        player.atk += 5;
+
+        playSfx('levelup');
+        addLog(
+          `🎉 升上【Lv.${player.level} ${getGradeTitle(player.level)}】！最大 HP+25、最大 MP+15、爆肝力 ATK+5，且狀態全滿！`,
+          'text-emerald-300 font-extrabold'
+        );
+      }
+    }
+
+    // 戰鬥失敗處理 (不刪檔，送回保健室回滿血)
+    function handlePlayerDefeat() {
+      playSfx('lose');
+      player.hp = player.maxHp;
+      player.mp = player.maxMp;
+      saveGame();
+      addLog(
+        `🚑 你的肝指數歸零昏倒在教室！校護阿姨把你抬回宿舍休息並幫你補滿了狀態。去福利社買點考古題或裝備再來挑戰吧！`,
+        'text-rose-300 font-bold'
+      );
+      switchToHubView();
+    }
+
+    /**************************************************************
+     * 8. 畢業證書與重置彈窗控制
+     **************************************************************/
+    function openGraduationModal() {
+      document.getElementById('grad-cert-text').textContent =
+        `茲證明主修【${player.className}】之同學，在校期間成功修畢早八微積分、擊潰隱形雷隊友、挺過地獄期中考與通宵期末專題，並以卓越爆肝力通過指導教授的終極論文考驗，學分修滿，准予畢業！`;
+      document.getElementById('grad-stat-lv').textContent = `Lv.${player.level}`;
+      document.getElementById('grad-stat-atk').textContent = player.atk;
+      document.getElementById('grad-stat-gold').textContent = `$${player.gold}`;
+      document.getElementById('modal-graduation').classList.remove('hidden');
+    }
+
+    function closeGraduationModal() {
+      document.getElementById('modal-graduation').classList.add('hidden');
+    }
+
+    function openResetModal() {
+      document.getElementById('modal-reset').classList.remove('hidden');
+    }
+
+    function closeResetModal() {
+      document.getElementById('modal-reset').classList.add('hidden');
+    }
+
+    function confirmResetGame() {
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+      } catch (e) {}
+      player = null;
+      battle.active = false;
+
+      closeResetModal();
+      closeGraduationModal();
+
+      document.getElementById('screen-game').classList.add('hidden');
+      document.getElementById('screen-game').classList.remove('flex');
+      document.getElementById('btn-reset').classList.add('hidden');
+      document.getElementById('save-banner').classList.add('hidden');
+      document.getElementById('screen-select').classList.remove('hidden');
+    }
+
+    /**************************************************************
+     * 9. 學涯日誌系統 (Campus & Combat Log)
+     **************************************************************/
+    function addLog(message, colorClass = 'text-slate-300') {
+      const logBox = document.getElementById('game-log');
+      if (!logBox) return;
+
+      const timeStr = new Date().toLocaleTimeString('zh-TW', {
+        hour12: false,
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      });
+
+      const entry = document.createElement('div');
+      entry.className = `leading-relaxed ${colorClass}`;
+      entry.innerHTML = `<span class="text-slate-500 mr-2">[${timeStr}]</span>${message}`;
+      logBox.appendChild(entry);
+      logBox.scrollTop = logBox.scrollHeight;
+    }
+
+    function clearLog() {
+      const logBox = document.getElementById('game-log');
+      if (logBox) logBox.innerHTML = '';
+    }
+
+    // 頁面載入時檢查是否有本地存檔
+    window.onload = function () {
+      loadSavedPreview();
+    };
+  </script>
+</body>
+</html>
